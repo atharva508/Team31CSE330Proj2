@@ -1,18 +1,18 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include<linux/moduleparam.h>
+#include <linux/moduleparam.h>
 #include <linux/kthread.h>
 #include <linux/semaphore.h>
 #include <linux/timekeeping.h>
-#include<linux/sched.h>
+#include <linux/sched.h>
 #include <linux/sched/signal.h>
-static int buffSize=0;
-static int prod=0;
-static int cons=0;
+static int buff_size=0;
+static int p=0;
+static int c=0;
 static int uid=0;
-module_param(buffSize, int, 0);
-module_param(prod, int, 0);
-module_param(cons, int, 0);
+module_param(buff_size, int, 0);
+module_param(p, int, 0);
+module_param(c, int, 0);
 module_param(uid, int, 0);
 struct task_struct buffer[50];
 int in = 0;// whre data should be inserted
@@ -38,7 +38,7 @@ int producer_func(void *data){
 			items_produced++;
 			buffer[in] = *p;
 			printk("[kProducer-1] Produce-Item#:%d at buffer index: %d for PID: %d\n",items_produced,in,p->pid);
-			in = (in+1)%buffSize;
+			in = (in+1)%buff_size;
 			up(&full);
 			}
 		}
@@ -60,7 +60,7 @@ int consumer_func(void *data){
 		//struct timespec currTime = ktime_get_ns();
 		//not executed prperly
 		printk("[kConsumer-<add num>] Consumed Item#:%5d on buffer index:%3d :: PID:%d  Elapsed Time <add time>",items_consumed,out,currTask->pid);
-		out = (out+1)%buffSize;
+		out = (out+1)%buff_size;
 		up(&empty);
 		up(&mutex);
 
@@ -70,15 +70,19 @@ int consumer_func(void *data){
 }
 int producer_consumer_init(void){
         int i;
+        printk("buff size = %d",buff_size);
+        printk("number of producers= %d", p);
+        printk("number of consumers =%d",c);
+        printk("uid = %d",uid);
         sema_init(&mutex,1);
-        sema_init(&empty,buffSize);
+        sema_init(&empty,buff_size);
         sema_init(&full,0);
         //initializes the producers(0 or 1)
-        for(i =0;i<prod;i++){
+        for(i =0;i<p;i++){
         producer_thread = kthread_run(producer_func, NULL, "Producer-<add num>");
         }
         //initializes the consumers(0+)
-        for(i =0;i<cons;i++){
+        for(i =0;i<c;i++){
         consumer_thread[i] = kthread_run(consumer_func, NULL, "Consumer-<add num>");
         }
         return 0;
@@ -89,11 +93,11 @@ int producer_consumer_init(void){
 //implement producer_func
 void  producer_consumer_exit(void){
 	int i;
-	for(int i=0;i<prod;i++){
+	for(i=0;i<p;i++){
 		kthread_stop(producer_thread);
 	}
 
-	for(i =0;i<cons;i++){
+	for(i =0;i<c;i++){
 		kthread_stop(consumer_thread[i]);
 	}
 
