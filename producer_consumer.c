@@ -40,10 +40,8 @@ int producer_func(void *data){
 			up(&full);
 			}
 		}
-		}
 		up(&mutex);
-	}	
-		
+		}		
 	}
 	return 0;
 }
