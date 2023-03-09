@@ -31,18 +31,20 @@ int producer_func(void *data){
         while(!kthread_should_stop()){
                 int num1;
                 struct task_struct *p;
-                num1 = down_interruptible(&mutex);
+                num = down_interruptible(&empty);
+                
                 for_each_process(p){
                         if(p->cred->uid.val==uid){
-                        num = down_interruptible(&empty);
+                        num1 = down_interruptible(&mutex);
                         items_produced++;
                         buffer[in] = *p;
                         printk("[kProducer-1] Produce-Item#:%d at buffer index: %d for PID: %d\n",items_produced,in,p->pid);
                         in = (in+1)%buff_size;
-                        up(&full);
+                        up(&mutex);
                         }
                 }
-                up(&mutex);
+                up(&full);
+                
                 break;//so it doesnt go over the same tasks again and again(might be wrong)
         }
         return 0;
@@ -53,8 +55,8 @@ int consumer_func(void *data){
                 int num2;
                 int num3;
                 struct task_struct *currTask;
-                num2 =down_interruptible(&mutex);//makes mutex 0 so no other thread alters
                 num3 =down_interruptible(&full);//decreases full spots
+                num2 =down_interruptible(&mutex);//makes mutex 0 so no other thread alters
                 items_consumed++;
                 currTask = &buffer[out];
                 //struct timespec starting = currTask->start_time;
@@ -62,8 +64,9 @@ int consumer_func(void *data){
                 //not executed prperly
                 printk("[kConsumer-<add num>] Consumed Item#:%5d on buffer index:%3d :: PID:%d  Elapsed Time <add time>",items_consumed,out,currTask->pid);
                 out = (out+1)%buff_size;
-                up(&empty);
                 up(&mutex);
+                up(&empty);
+                
 
         }
         return 0;
