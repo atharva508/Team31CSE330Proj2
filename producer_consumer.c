@@ -29,10 +29,9 @@ int items_consumed = 0;
 
 int producer_func(void *data){
 	while(!kthread_should_stop()){
-		struct task_struct *p;
 		if(down_interruptible(&mutex)){
+		struct task_struct *p;
 		for_each_process(p){
-			if(p->cred->uid.val==uid){
 			if(down_interruptible(&empty)){
 			items_produced++;
 			buffer[in] = *p;
@@ -51,9 +50,9 @@ int producer_func(void *data){
 
 int consumer_func(void *data){
 	while(!kthread_should_stop()){
-		struct task_struct *currTask;
 		if(down_interruptible(&mutex)){//makes mutex 0 so no other thread alters
 		if(down_interruptible(&full)){//decreases full spots
+		struct task_struct *currTask;
 		items_consumed++;
 		currTask = &buffer[out];
 		//struct timespec starting = currTask->start_time;
