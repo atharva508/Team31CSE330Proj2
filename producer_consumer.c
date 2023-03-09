@@ -39,6 +39,9 @@ int producer_func(void *data){
 			in = (in+1)%buff_size;
 			up(&full);
 			}
+			else{
+				break;
+			}
 		}
 		up(&mutex);
 		}		
