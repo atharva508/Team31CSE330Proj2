@@ -1,4 +1,5 @@
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/moduleparam.h>
 #include <linux/kthread.h>
@@ -10,10 +11,10 @@ static int buff_size=0;
 static int p=0;
 static int c=0;
 static int uid=0;
+module_param(uid, int, 0);
 module_param(buff_size, int, 0);
 module_param(p, int, 0);
 module_param(c, int, 0);
-module_param(uid, int, 0);
 struct task_struct buffer[50];
 int in = 0;// whre data should be inserted
 int out = 0; //from where the data should be removed
@@ -21,56 +22,55 @@ int out = 0; //from where the data should be removed
 //full semaphore- keeps track of full indices
 //empty semaphore- keeps track empty indices 
 struct semaphore mutex, full,empty;
-static struct task_struct *producer_thread;
-static struct task_struct *consumer_thread[5];
+struct task_struct *producer_thread;
+struct task_struct (*consumer_thread)[5];
 int items_produced = 0;
 int items_consumed = 0;
 
-
 int producer_func(void *data){
-	while(!kthread_should_stop()){
-		if(down_interruptible(&mutex)){
-		struct task_struct *p;
-		for_each_process(p){
-			if(down_interruptible(&empty)){
-			items_produced++;
-			buffer[in] = *p;
-			printk("[kProducer-1] Produce-Item#:%d at buffer index: %d for PID: %d\n",items_produced,in,p->pid);
-			in = (in+1)%buff_size;
-			up(&full);
-			}
-			else{
-				break;
-			}
-		}
-		up(&mutex);
-		}		
-	}
-	return 0;
+        while(!kthread_should_stop()){
+                int num1;
+                struct task_struct *p;
+                num1 = down_interruptible(&mutex);
+                for_each_process(p){
+                        if(p->cred->uid.val==uid){
+                        num = down_interruptible(&empty);
+                        items_produced++;
+                        buffer[in] = *p;
+                        printk("[kProducer-1] Produce-Item#:%d at buffer index: %d for PID: %d\n",items_produced,in,p->pid);
+                        in = (in+1)%buff_size;
+                        up(&full);
+                        }
+                }
+                up(&mutex);
+                break;//so it doesnt go over the same tasks again and again(might be wrong)
+        }
+        return 0;
 }
 
 int consumer_func(void *data){
-	while(!kthread_should_stop()){
-		if(down_interruptible(&mutex)){//makes mutex 0 so no other thread alters
-		if(down_interruptible(&full)){//decreases full spots
-		struct task_struct *currTask;
-		items_consumed++;
-		currTask = &buffer[out];
-		//struct timespec starting = currTask->start_time;
-		//struct timespec currTime = ktime_get_ns();
-		//not executed prperly
-		printk("[kConsumer-<add num>] Consumed Item#:%5d on buffer index:%3d :: PID:%d  Elapsed Time <add time>",items_consumed,out,currTask->pid);
-		out = (out+1)%buff_size;	
-		up(&empty);
-		}
-		up(&mutex);
-		}
-	}
-	return 0;
+        while(!kthread_should_stop()){
+                int num2;
+                int num3;
+                struct task_struct *currTask;
+                num2 =down_interruptible(&mutex);//makes mutex 0 so no other thread alters
+                num3 =down_interruptible(&full);//decreases full spots
+                items_consumed++;
+                currTask = &buffer[out];
+                //struct timespec starting = currTask->start_time;
+                //struct timespec currTime = ktime_get_ns();
+                //not executed prperly
+                printk("[kConsumer-<add num>] Consumed Item#:%5d on buffer index:%3d :: PID:%d  Elapsed Time <add time>",items_consumed,out,currTask->pid);
+                out = (out+1)%buff_size;
+                up(&empty);
+                up(&mutex);
+
+        }
+        return 0;
 
 }
 int producer_consumer_init(void){
-        int i;
+        int i,j;
         printk("buff size = %d",buff_size);
         printk("number of producers= %d", p);
         printk("number of consumers =%d",c);
@@ -83,8 +83,8 @@ int producer_consumer_init(void){
         producer_thread = kthread_run(producer_func, NULL, "Producer-<add num>");
         }
         //initializes the consumers(0+)
-        for(i =0;i<c;i++){
-        consumer_thread[i] = kthread_run(consumer_func, NULL, "Consumer-<add num>");
+        for(j =0;j<c;j++){
+        consumer_thread[j] = kthread_run(consumer_func, NULL, "Consumer-<add num>");
         }
         return 0;
 
@@ -93,19 +93,21 @@ int producer_consumer_init(void){
 
 //implement producer_func
 void  producer_consumer_exit(void){
-	int i;
-	for(i=0;i<p;i++){
-		kthread_stop(producer_thread);
-	}
-	for(i =0;i<c;i++){
-		kthread_stop(consumer_thread[i]);
-	}
+        int i,j;
+        for(i=0;i<p;i++){
+                kthread_stop(producer_thread);
+        }
 
-	//print total elapsed time(to be implemented)
+        for(j =0;j<c;j++){
+                kthread_stop(consumer_thread[j]);
+        }
+
+        //print total elapsed time(to be implemented)
 
 }
 
 module_init(producer_consumer_init);
 module_exit(producer_consumer_exit);
 MODULE_LICENSE("GPL");
+
 
