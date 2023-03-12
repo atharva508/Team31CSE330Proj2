@@ -56,6 +56,7 @@ static int producer_func(void *data){
 }
 int consumer_func(void *data){
 	int num;
+	int threadNum = *(int*)data;
 
         while(!kthread_should_stop()){
 		int64_t starting, currTime;
@@ -78,7 +79,7 @@ int consumer_func(void *data){
                 time = time % 60000000000;
                 seconds = time / 1000000000;
                 //not executed prperly
-                printk(KERN_INFO"[kConsumer-1] Consumed Item#:%5d on buffer index:%3d :: PID:%10d  Elapsed Time %02lu:%02lu:%02lu\n",items_consumed,out,currTask->pid,hours,minutes,seconds);
+                printk(KERN_INFO"[kConsumer-%d] Consumed Item#:%5d on buffer index:%3d :: PID:%10d  Elapsed Time %02lu:%02lu:%02lu\n",threadNum,items_consumed,out,currTask->pid,hours,minutes,seconds);
 		global_time+= currTime;
                 //not executed prperly
                 out = (out+1)%buff_size;
@@ -103,7 +104,8 @@ int producer_consumer_init(void){
         }
         //initializes the consumers(0+)
         for(j=0;j<c;j++){
-        consumer_thread[j] = kthread_run(consumer_func, NULL, "Consumer Thread - %d",j+1);
+	int threadNum = j+1;
+        consumer_thread[j] = kthread_run(consumer_func, &threadNum, "Consumer Thread - %d",j+1);
 	printk(KERN_INFO"[kConsumer-%d] kthread Consumer Created Successfully\n",j+1);
 
         }
@@ -133,13 +135,13 @@ void  producer_consumer_exit(void){
 		if(producer_ended!=1){
                 kthread_stop(producer_thread);
 		}
-		printk(KERN_INFO"[kProducer-1} Producer Thread stopped\n");
+		printk(KERN_INFO"[kProducer-1] Producer Thread stopped\n");
         }
 	for(j=0;j<c;j++){
 		if(consumer_ended !=1){
                 kthread_stop(consumer_thread[j]);
 		}
-		printk(KERN_INFO"[kConsumer-%d} Consumer Thread stopped\n",j+1);
+		printk(KERN_INFO"[kConsumer-%d] Consumer Thread stopped\n",j+1);
 		
 
         }
