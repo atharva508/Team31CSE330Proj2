@@ -18,7 +18,8 @@ module_param(uid, int, 0);
 module_param(buff_size, int, 0);
 module_param(p, int, 0);
 module_param(c, int, 0);
-struct task_struct buffer[50];
+struct task_struct *buffer[100];
+int64_t global_time = 0;
 static int in = 0;// whre data should be inserted
 static int out = 0; //from where the data should be removed
 //mutex semaphore-makes sure that the buffer is only being modified by one thread
@@ -42,8 +43,8 @@ static int producer_func(void *data){
 				}
 				num = down_interruptible(&mutex);
                         	items_produced++;
-                        	buffer[in] = *p;
-                        	printk("[kProducer-1] Produce-Item#:%d at buffer index: %d for PID: %d\n",items_produced,in,p->pid);
+                        	buffer[in] = p;
+                        	printk(KERN_INFO"[kProducer-1] Produce-Item#:%4d at buffer index: %3d for PID: %6d\n",items_produced,in,p->pid);
                         	in = (in+1)%buff_size;
 				up(&mutex);
                         	up(&full);
@@ -51,7 +52,6 @@ static int producer_func(void *data){
                 }
 		break;
         }
-	printk("Producer ended my bitch\n");
         return 0;
 }
 int consumer_func(void *data){
@@ -60,37 +60,40 @@ int consumer_func(void *data){
         while(!kthread_should_stop()){
 		int64_t starting, currTime;
                 struct task_struct *currTask;
-		
+		long time, hours, minutes, seconds;
 		 num =down_interruptible(&full);//decreases full spots
 		if(consumer_ended ==1){
 		break;
 		}
         	num =down_interruptible(&mutex);//decreases full spots
 		items_consumed++;
-                currTask = &buffer[out];
+                currTask = buffer[out];
                 starting = currTask->start_time;
                 currTime = ktime_get_ns();
 		currTime = currTime-starting;
+		time =(long) currTime;
+                hours = time / 3600000000000;
+                time = time % 3600000000000;
+               	minutes = time / 60000000000;
+                time = time % 60000000000;
+                seconds = time / 1000000000;
                 //not executed prperly
-                printk("[kConsumer-1] Consumed Item#:%5d on buffer index:%3d :: PID:%d  Elapsed Time",items_consumed,out,currTask->pid);
-		printk("%llu",currTime);
-		printk("\n");
+                printk(KERN_INFO"[kConsumer-1] Consumed Item#:%5d on buffer index:%3d :: PID:%10d  Elapsed Time %02lu:%02lu:%02lu\n",items_consumed,out,currTask->pid,hours,minutes,seconds);
+		global_time+= currTime;
+                //not executed prperly
                 out = (out+1)%buff_size;
 		up(&empty);
 		up(&mutex);
 
         }
-	printk("consumer ended \n");
         return 0;
 
 }
 
 int producer_consumer_init(void){
         int j=0;
-        printk("buff size = %d\n",buff_size);
-        printk("number of producers= %d\n", p);
-        printk("number of consumers =%d\n",c);
-        printk("uid = %d\n",uid);
+	printk(KERN_INFO"CSE330 Project 2 kernel module inserted\n");
+	printk(KERN_INFO"module recieved the following inputs: UID:%d,Buffer-Size:%d No of Producer:%d No of Consumer:%d\n",uid,buff_size,p,c);
         sema_init(&mutex,1);
         sema_init(&empty,buff_size);
         sema_init(&full,0);
@@ -101,7 +104,7 @@ int producer_consumer_init(void){
         //initializes the consumers(0+)
         for(j=0;j<c;j++){
         consumer_thread[j] = kthread_run(consumer_func, NULL, "Consumer Thread - %d",j+1);
-	printk("consumer thread-%d started\n",j+1);
+	printk(KERN_INFO"[kConsumer-%d] kthread Consumer Created Successfully\n",j+1);
 
         }
         return 0;
@@ -112,8 +115,8 @@ int producer_consumer_init(void){
 //implement producer_func
 void  producer_consumer_exit(void){
 	int j;
-	printk("number of items produced = %d\n",items_produced);
-    	printk("number of items consumed = %d\n",items_consumed);
+        long time, hours, minutes, seconds;
+
 
          if(p>0){
                  producer_ended = 1;
@@ -123,20 +126,34 @@ void  producer_consumer_exit(void){
 
         for(j=0;j<c;j++){
 		consumer_ended=1;
-	        printk("about to consumer thread life\n");
 		up(&full);
-                printk("about to end consumer thread again\n");
         }
 
-  	 if(p>0&&producer_ended==0){
+  	 if(p>0){
+		if(producer_ended!=1){
                 kthread_stop(producer_thread);
+		}
+		printk(KERN_INFO"[kProducer-1} Producer Thread stopped\n");
         }
 	for(j=0;j<c;j++){
 		if(consumer_ended !=1){
                 kthread_stop(consumer_thread[j]);
 		}
+		printk(KERN_INFO"[kConsumer-%d} Consumer Thread stopped\n",j+1);
+		
+
         }
-        //print total elapsed time(to be implemented)
+        printk(KERN_INFO"number of items produced = %d\n",items_produced);
+        printk(KERN_INFO"number of items consumed = %d\n",items_consumed);
+        //print total elapsed time(to be implemented);
+	time =(long) global_time;
+        hours = time / 3600000000000;
+        time = time % 3600000000000;
+        minutes = time / 60000000000;
+        time = time % 60000000000;
+        seconds = time / 1000000000;
+	printk(KERN_INFO"The Total elapsed time of all processes for UID %d is   %02lu:%02lu:%02lu \n",uid,hours,minutes,seconds);
+	printk(KERN_INFO"CSE Project 2 Kernel Module Removed\n");
 }
 
 module_init(producer_consumer_init);
