@@ -128,14 +128,15 @@ void  producer_consumer_exit(void){
 
         for(j=0;j<c;j++){
 		consumer_ended=1;
+		//kthread_stop(consumer_thread[j]);
 		up(&full);
         }
-
   	 if(p>0){
 		if(producer_ended!=1){
                 kthread_stop(producer_thread);
 		}
 		printk(KERN_INFO"[kProducer-1] Producer Thread stopped\n");
+	
         }
 	for(j=0;j<c;j++){
 		if(consumer_ended !=1){
