@@ -56,7 +56,7 @@ static int producer_func(void *data){
 }
 int consumer_func(void *data){
 	int num;
-	//int threadNum = *(int*)data;
+	int *thread_num = (int*)data;
 
         while(!kthread_should_stop()){
 		int64_t starting, currTime;
@@ -79,7 +79,7 @@ int consumer_func(void *data){
                 time = time % 60000000000;
                 seconds = time / 1000000000;
                 //not executed prperly
-                printk(KERN_INFO"[kConsumer-1] Consumed Item#:%5d on buffer index:%3d :: PID:%10d  Elapsed Time %02lu:%02lu:%02lu\n",items_consumed,out,currTask->pid,hours,minutes,seconds);
+                printk(KERN_INFO"[kConsumer-%d] Consumed Item#:%5d on buffer index:%3d :: PID:%10d  Elapsed Time %02lu:%02lu:%02lu\n",*thread_num,items_consumed,out,currTask->pid,hours,minutes,seconds);
 		global_time+= currTime;
                 //not executed prperly
                 out = (out+1)%buff_size;
@@ -92,7 +92,7 @@ int consumer_func(void *data){
 }
 
 int producer_consumer_init(void){
-        int j=0;
+        int j1;
 	printk(KERN_INFO"CSE330 Project 2 kernel module inserted\n");
 	printk(KERN_INFO"module recieved the following inputs: UID:%d,Buffer-Size:%d No of Producer:%d No of Consumer:%d\n",uid,buff_size,p,c);
         sema_init(&mutex,1);
@@ -103,10 +103,11 @@ int producer_consumer_init(void){
         producer_thread = kthread_run(producer_func, NULL, "Producer-1");
         }
         //initializes the consumers(0+)
-        for(j=0;j<c;j++){
-	//int threadNum = j+1;
-        consumer_thread[j] = kthread_run(consumer_func, NULL, "Consumer Thread - %d",j+1);
-	printk(KERN_INFO"[kConsumer-%d] kthread Consumer Created Successfully\n",j+1);
+        for(j1=0;j1<c;j1++){
+	int *threadNum = (int *)kmalloc(sizeof(int),GFP_KERNEL);
+	*threadNum = j1+1;
+        consumer_thread[j1] = kthread_run(consumer_func,(void *) threadNum, "Consumer Thread - %d",j1+1);
+	printk(KERN_INFO"[kConsumer-%d] kthread Consumer Created Successfully\n",j1+1);
 
         }
         return 0;
