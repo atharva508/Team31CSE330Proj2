@@ -101,6 +101,8 @@ int producer_consumer_init(void){
         //initializes the producers(0 or 1)
         if(p>0){
         producer_thread = kthread_run(producer_func, NULL, "Producer-1");
+	 printk(KERN_INFO"[kProducer-1] kthread Producer Created Successfully\n");
+
         }
         //initializes the consumers(0+)
         for(j1=0;j1<c;j1++){
